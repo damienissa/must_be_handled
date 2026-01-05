@@ -1,0 +1,11 @@
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    # Disable naming convention for tests using test_reflective_loader
+    # which requires snake_case test method names
+    non_constant_identifier_names: false
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
