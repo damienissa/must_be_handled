@@ -1,7 +1,7 @@
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
-import 'package:analyzer/error/error.dart' show DiagnosticSeverity;
+import 'package:analyzer/error/error.dart' show ErrorSeverity;
 import 'package:analyzer/error/listener.dart';
 import 'package:custom_lint_builder/custom_lint_builder.dart';
 
@@ -16,7 +16,7 @@ class MustBeHandledSyncRule extends DartLintRule {
         "Call to '{0}' is annotated with @mustBeHandled and must be wrapped "
         'in try/catch.',
     correctionMessage: 'Wrap this call in a try/catch block.',
-    errorSeverity: DiagnosticSeverity.ERROR,
+    errorSeverity: ErrorSeverity.ERROR,
   );
 
   @override
@@ -26,7 +26,7 @@ class MustBeHandledSyncRule extends DartLintRule {
     CustomLintContext context,
   ) {
     context.registry.addMethodInvocation((node) {
-      _checkSyncInvocation(node, node.methodName.element, reporter);
+      _checkSyncInvocation(node, node.methodName.staticElement, reporter);
     });
 
     context.registry.addFunctionExpressionInvocation((node) {
@@ -34,9 +34,9 @@ class MustBeHandledSyncRule extends DartLintRule {
       Element? element;
 
       if (function is SimpleIdentifier) {
-        element = function.element;
+        element = function.staticElement;
       } else if (function is PropertyAccess) {
-        element = function.propertyName.element;
+        element = function.propertyName.staticElement;
       }
 
       _checkSyncInvocation(node, element, reporter);
@@ -70,7 +70,7 @@ class MustBeHandledAsyncNotAwaitedRule extends DartLintRule {
         'and wrapped in try/catch.',
     correctionMessage:
         'Add await before this call and wrap it in a try/catch block.',
-    errorSeverity: DiagnosticSeverity.ERROR,
+    errorSeverity: ErrorSeverity.ERROR,
   );
 
   @override
@@ -80,7 +80,7 @@ class MustBeHandledAsyncNotAwaitedRule extends DartLintRule {
     CustomLintContext context,
   ) {
     context.registry.addMethodInvocation((node) {
-      _checkAsyncNotAwaited(node, node.methodName.element, reporter);
+      _checkAsyncNotAwaited(node, node.methodName.staticElement, reporter);
     });
 
     context.registry.addFunctionExpressionInvocation((node) {
@@ -88,9 +88,9 @@ class MustBeHandledAsyncNotAwaitedRule extends DartLintRule {
       Element? element;
 
       if (function is SimpleIdentifier) {
-        element = function.element;
+        element = function.staticElement;
       } else if (function is PropertyAccess) {
-        element = function.propertyName.element;
+        element = function.propertyName.staticElement;
       }
 
       _checkAsyncNotAwaited(node, element, reporter);
@@ -124,7 +124,7 @@ class MustBeHandledAsyncNotHandledRule extends DartLintRule {
         "Call to '{0}' is annotated with @mustBeHandled. The await must be "
         'wrapped in try/catch.',
     correctionMessage: 'Wrap this await expression in a try/catch block.',
-    errorSeverity: DiagnosticSeverity.ERROR,
+    errorSeverity: ErrorSeverity.ERROR,
   );
 
   @override
@@ -134,7 +134,7 @@ class MustBeHandledAsyncNotHandledRule extends DartLintRule {
     CustomLintContext context,
   ) {
     context.registry.addMethodInvocation((node) {
-      _checkAsyncNotHandled(node, node.methodName.element, reporter);
+      _checkAsyncNotHandled(node, node.methodName.staticElement, reporter);
     });
 
     context.registry.addFunctionExpressionInvocation((node) {
@@ -142,9 +142,9 @@ class MustBeHandledAsyncNotHandledRule extends DartLintRule {
       Element? element;
 
       if (function is SimpleIdentifier) {
-        element = function.element;
+        element = function.staticElement;
       } else if (function is PropertyAccess) {
-        element = function.propertyName.element;
+        element = function.propertyName.staticElement;
       }
 
       _checkAsyncNotHandled(node, element, reporter);
@@ -173,15 +173,15 @@ class MustBeHandledAsyncNotHandledRule extends DartLintRule {
 
 /// Checks if [element] has the @mustBeHandled annotation.
 bool _hasMustBeHandledAnnotation(Element element) {
-  for (final annotation in element.metadata.annotations) {
+  // In analyzer 7.x, metadata is List<ElementAnnotation> directly
+  for (final annotation in element.metadata) {
     final annotationElement = annotation.element;
     if (annotationElement == null) continue;
 
     // Check for const variable reference (e.g., @mustBeHandled)
     if (annotationElement is PropertyAccessorElement) {
-      final variable = annotationElement.variable;
-      final name = variable.name;
-      if (name == 'mustBeHandled') {
+      final variable = annotationElement.variable2;
+      if (variable != null && variable.name == 'mustBeHandled') {
         final library = variable.library;
         if (library.identifier.startsWith('package:must_be_handled/')) {
           return true;
@@ -191,7 +191,7 @@ bool _hasMustBeHandledAnnotation(Element element) {
 
     // Check for constructor invocation (e.g., @MustBeHandled())
     if (annotationElement is ConstructorElement) {
-      final classElement = annotationElement.enclosingElement;
+      final classElement = annotationElement.enclosingElement3;
       if (classElement.name == 'MustBeHandled') {
         final library = classElement.library;
         if (library.identifier.startsWith('package:must_be_handled/')) {
