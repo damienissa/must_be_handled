@@ -2,8 +2,8 @@ name: must_be_handled
 description: >-
   A Dart analyzer plugin that enforces explicit error-handling contracts at
   compile time using the @mustBeHandled annotation.
-version: 0.1.0
-repository: https://github.com/example/must_be_handled
+version: 0.1.1
+repository: https://github.com/damienissa/must_be_handled
 
 environment:
   sdk: ^3.9.2
