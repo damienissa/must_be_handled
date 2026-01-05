@@ -1,181 +1,164 @@
 # must_be_handled
 
-A Dart analyzer plugin that enforces **explicit error-handling contracts** at compile time by introducing a `@mustBeHandled` annotation.
+A Dart analyzer plugin that enforces explicit error-handling contracts at compile time using the `@mustBeHandled` annotation.
 
-Functions or methods annotated with `@mustBeHandled` **must be explicitly handled by the caller**, otherwise the analyzer reports an error.
-
-This brings **checked-exception–like discipline** to Dart without changing the language.
+Built with [custom_lint](https://pub.dev/packages/custom_lint) for seamless IDE integration.
 
 ## Features
 
-- 🎯 **Compile-time enforcement** — Errors appear in your IDE and during analysis
-- 🔄 **Sync and async support** — Handles both synchronous and asynchronous functions
-- ⏳ **Await verification** — Ensures async functions are properly awaited
-- 🛡️ **try/catch validation** — Verifies calls are wrapped in try/catch blocks
-- 📍 **Precise diagnostics** — Clear error messages with correction hints
+- 🔒 **Compile-time safety** - Catches unhandled errors before runtime
+- ⚡ **Async-aware** - Distinguishes between sync and async functions
+- 🎯 **Precise diagnostics** - Clear error messages with correction hints
+- 🔄 **IDE integration** - Real-time feedback in your editor
+- 🧪 **CLI support** - Run checks in CI/CD pipelines
 
-## Getting Started
+## Installation
 
-### 1. Add the dependency
-
-```yaml
-dependencies:
-  must_be_handled: ^0.1.0
-```
-
-### 2. Enable the plugin
-
-Add to your `analysis_options.yaml`:
+Add to your `pubspec.yaml`:
 
 ```yaml
-plugins:
-  - must_be_handled
+dev_dependencies:
+  custom_lint: ^0.8.1
+  must_be_handled: ^0.1.1
 ```
 
-### 3. Annotate your functions
+Enable the plugin in your `analysis_options.yaml`:
+
+```yaml
+analyzer:
+  plugins:
+    - custom_lint
+```
+
+Run `dart pub get` (or `flutter pub get` for Flutter projects).
+
+## Usage
+
+### Annotating Functions
+
+Import the package and annotate functions that require explicit error handling:
 
 ```dart
 import 'package:must_be_handled/must_be_handled.dart';
 
-@mustBeHandled
-Future<User> fetchUser() async {
-  // This function might throw!
-}
-```
-
-## Usage
-
-### Sync Functions
-
-Sync functions annotated with `@mustBeHandled` must be wrapped in a `try/catch` block:
-
-```dart
+// Using the const annotation
 @mustBeHandled
 void dangerousSync() {
   throw Exception('Something went wrong!');
 }
 
-void main() {
-  // ❌ Invalid — not in try/catch
-  dangerousSync();
-
-  // ✅ Valid — wrapped in try/catch
-  try {
-    dangerousSync();
-  } catch (e) {
-    print('Error: $e');
-  }
-}
-```
-
-### Async Functions
-
-Async functions annotated with `@mustBeHandled` must be **both awaited AND wrapped in try/catch**:
-
-```dart
-@mustBeHandled
-Future<String> fetchData() async {
-  throw Exception('Network error!');
-}
-
-void main() async {
-  // ❌ Invalid — not awaited
-  fetchData();
-
-  // ❌ Invalid — awaited but not in try/catch
-  await fetchData();
-
-  // ❌ Invalid — not awaited (false safety)
-  try {
-    fetchData(); // not awaited!
-  } catch (_) {}
-
-  // ✅ Valid — awaited AND in try/catch
-  try {
-    final data = await fetchData();
-    print(data);
-  } catch (e) {
-    print('Error: $e');
-  }
-}
-```
-
-### Class Methods
-
-The annotation works on class methods too:
-
-```dart
-class ApiService {
-  @mustBeHandled
-  Future<Response> post(String url, Map<String, dynamic> body) async {
-    // ...
-  }
-}
-
-void main() async {
-  final api = ApiService();
-  
-  // ✅ Valid
-  try {
-    final response = await api.post('/users', {'name': 'John'});
-    print(response);
-  } catch (e) {
-    print('API error: $e');
-  }
-}
-```
-
-### Constructor Annotation
-
-You can use either the constant or the constructor:
-
-```dart
-// Using the constant (preferred)
-@mustBeHandled
-void danger1() {}
-
-// Using the constructor
+// Using the constructor annotation
 @MustBeHandled()
-void danger2() {}
+Future<User> fetchUser() async {
+  // Network request that might fail...
+}
 ```
 
-## Enforcement Rules
+### Handling Calls
 
-| Rule | Description |
-|------|-------------|
-| **Sync functions** | Must be inside `try` block (not `catch`/`finally`) |
-| **Async functions** | Must be `await`ed AND inside `try` block |
-| **Scope** | Call must be in `try {}` body, not in `catch` or `finally` |
+The plugin enforces these rules:
 
-## Explicitly Not Supported (v1)
-
-The following patterns are **not** considered valid handling:
+#### Sync Functions
+Must be wrapped in `try/catch`:
 
 ```dart
-// ❌ These don't satisfy @mustBeHandled
-fetchUser().catchError(...)
-runZonedGuarded(...)
-fetchUser().then(...).catchError(...)
+// ✅ Valid
+try {
+  dangerousSync();
+} catch (e) {
+  handleError(e);
+}
+
+// ❌ Invalid - will show warning
+dangerousSync(); // must_be_handled_sync
 ```
 
-**Rationale:** These patterns are ambiguous and harder to statically verify. Future versions may add opt-in support.
+#### Async Functions
+Must be **both** `await`ed **and** wrapped in `try/catch`:
+
+```dart
+// ✅ Valid
+try {
+  await fetchUser();
+} catch (e) {
+  handleError(e);
+}
+
+// ❌ Invalid - not awaited
+fetchUser(); // must_be_handled_async_not_awaited
+
+// ❌ Invalid - awaited but not in try/catch
+await fetchUser(); // must_be_handled_async_not_handled
+
+// ❌ Invalid - in try/catch but not awaited (false safety!)
+try {
+  fetchUser(); // must_be_handled_async_not_awaited
+} catch (_) {}
+```
+
+## Lint Codes
+
+| Code | Description |
+|------|-------------|
+| `must_be_handled_sync` | Sync function not wrapped in try/catch |
+| `must_be_handled_async_not_awaited` | Async function not awaited |
+| `must_be_handled_async_not_handled` | Async function awaited but not in try/catch |
+
+## Running in CI
+
+Use the custom_lint CLI to check for violations:
+
+```bash
+# Dart projects
+dart run custom_lint
+
+# Flutter projects  
+flutter pub run custom_lint
+```
+
+The command exits with code 1 if any issues are found.
+
+## Configuration
+
+You can disable specific rules in your `analysis_options.yaml`:
+
+```yaml
+analyzer:
+  plugins:
+    - custom_lint
+
+custom_lint:
+  rules:
+    - must_be_handled_sync: false  # disable sync check
+```
+
+## Not Supported
+
+The following patterns are **not** detected (by design):
+
+- `.catchError()` - The plugin requires `try/catch` blocks
+- `.then()` chains - Use `await` instead
+- Variables holding Futures - Only direct calls are analyzed
+- Nested function calls - Only the outermost call is checked
 
 ## IDE Support
 
-The plugin works with:
+The plugin works with any IDE that supports the Dart Analysis Server:
 
-- ✅ VS Code (with Dart extension)
-- ✅ IntelliJ IDEA / Android Studio
-- ✅ `dart analyze` command
+- **VS Code** - Install the Dart/Flutter extension
+- **Android Studio / IntelliJ** - Built-in support
+- **Other IDEs** - May require LSP configuration
+
+After installation, restart your IDE or run "Dart: Restart Analysis Server".
 
 ## Example
 
-See the [example](example/) directory for a complete working example.
+See the [example](example/) directory for a complete demonstration.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues and pull requests.
+Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-BSD-3-Clause — See [LICENSE](LICENSE) for details.
+BSD-3-Clause - See [LICENSE](LICENSE) for details.

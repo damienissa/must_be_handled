@@ -9,15 +9,17 @@
 /// Add this package to your `pubspec.yaml`:
 ///
 /// ```yaml
-/// dependencies:
+/// dev_dependencies:
+///   custom_lint: ^0.8.1
 ///   must_be_handled: ^0.1.0
 /// ```
 ///
-/// Then enable the plugin in your `analysis_options.yaml`:
+/// Then enable custom_lint in your `analysis_options.yaml`:
 ///
 /// ```yaml
-/// plugins:
-///   - must_be_handled
+/// analyzer:
+///   plugins:
+///     - custom_lint
 /// ```
 ///
 /// ## Annotating Functions
@@ -49,4 +51,23 @@
 /// ```
 library;
 
+import 'package:custom_lint_builder/custom_lint_builder.dart';
+
+import 'src/rules/must_be_handled_rule.dart';
+
 export 'src/annotation.dart';
+
+/// Creates the custom_lint plugin instance.
+///
+/// This is the entry point for the custom_lint plugin infrastructure.
+PluginBase createPlugin() => _MustBeHandledPlugin();
+
+/// The main plugin class for must_be_handled.
+class _MustBeHandledPlugin extends PluginBase {
+  @override
+  List<LintRule> getLintRules(CustomLintConfigs configs) => [
+    MustBeHandledSyncRule(),
+    MustBeHandledAsyncNotAwaitedRule(),
+    MustBeHandledAsyncNotHandledRule(),
+  ];
+}
